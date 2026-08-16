@@ -437,6 +437,7 @@
         <span class="hidden sm:inline">Load</span>
       </button>
       <input type="file" id="loadFileInput" accept="application/json,.json" style="display:none" onchange="handleLoadFile(this)">
+<input type="file" id="presetFileInput" accept="application/json,.json" style="display:none" onchange="handlePresetFileImport(this)">
       <button type="button" onclick="openPhrasebook()" class="btn-gold flex items-center gap-1.5 px-3 sm:px-3.5 py-2 text-xs font-semibold" title="Uzbek phrasebook">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         <span class="hidden sm:inline">Phrasebook</span>
@@ -1205,8 +1206,130 @@ const PRESET_ITINERARIES = [
       { id:'samarkand', days:2 },
       { id:'tashkent', days:1, transportMode:'Train', transportNote:'Train back to Tashkent for departure.' }
     ]
+  },
+  {
+    id: 'our-trip',
+    name: 'Our trip',
+    summary: 'A 16-day Tashkent–Khiva–Ayazkala–Bukhara–Nuratau–Samarkand loop, planned around a 31 Aug 2026 departure.',
+    startDate: '2026-08-31',
+    stops: [
+      { id:'tashkent', days:1, locationNote:'Day of travel. Arrive in Tashkent at night' },
+      { id:'tashkent', days:1, locationNote:'Full day in the city. Take night train at night.' },
+      { id:'khiva', days:2, transportMode:'Train', transportNote:'Overnight train', locationNote:'possibility of going to Nukus for the incredible museum there on the second day. Depending on\nour liking.' },
+      { id:'ayazkala', days:1, transportNote:'Dessert Fortress and drive to Bukhara: https://islambektravel.uz/private-daytrips/khiva-three-fortressesbukhara', locationNote:'other option is do fortress one day (55 USD) and the use train to go to Bukhara:\nhttps://islambektravel.uz/private-daytrips/three-fortresses-roundtrip', foodPerDay:16, activitiesCost:5, transportCost:50 },
+      { id:'bukhara', days:2, locationNote:'we have to think if we want to shorten it to 2 days. It seems like 2 days is more than fine but 3 is\nmore chill as the city. is pretty nice. But if we shorten to 2 we can also chill in Samarkand and have\ntime to go to shakhrisabz.' },
+      { id:'nuratau', days:4, activitiesCost:340, locationNote:'All inclusive (transportation, food, accommodation)\nWould have to start on  7th of September as a group tour or we do it just the two of us and its 20EUR more per person with this company:\nhttps://nuratau.com/tour/4-day-hiking-tour-hayat-uhum-asraf/' },
+      { id:'samarkand', days:3, locationNote:'optionality of doing a half/trip to shakhrisabz / birthplace of Timur. The road there seems to be\nvery nice. Leave in the evening for Tashkent.' },
+      { id:'tashkent', days:2, locationNote:'Full day in Tashkent. Take very early flight ' }
+    ]
   }
 ];
+
+/* =========================================================
+   CUSTOM ITINERARIES — trips the traveler has saved as their own
+   permanent "ready-made" preset, either from their current live trip
+   or imported from a JSON file. Stored in this browser's localStorage
+   (there's no backend/server here, so "permanent" means "on this
+   device" — export the file to move it to another device/browser).
+   ========================================================= */
+const CUSTOM_PRESETS_KEY = 'riansSilkRoadTrip_customPresets_v1';
+let CUSTOM_PRESETS = [];
+function loadCustomPresetsFromStorage(){
+  try {
+    const raw = localStorage.getItem(CUSTOM_PRESETS_KEY);
+    CUSTOM_PRESETS = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(CUSTOM_PRESETS)) CUSTOM_PRESETS = [];
+  } catch(e) { CUSTOM_PRESETS = []; }
+}
+function saveCustomPresetsToStorage(){
+  try { localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(CUSTOM_PRESETS)); }
+  catch(e) { showToast("Couldn't save that to this browser's storage — it may be full or private-browsing mode."); }
+}
+// Every field carried on a live itinerary stop, mapped onto the same
+// shape PRESET_ITINERARIES stops use — nothing (notes, transport,
+// costs) is dropped.
+function stopFromItineraryItem(item){
+  return {
+    id: item.id,
+    days: item.days,
+    locationNote: item.locationNote || '',
+    transportMode: item.transportMode || null,
+    transportNote: item.transportNote || '',
+    accomPerNight: item.accomPerNight || 0,
+    foodPerDay: item.foodPerDay || 0,
+    activitiesCost: item.activitiesCost || 0,
+    transportCost: item.transportCost || 0
+  };
+}
+function addCustomPreset(name, stops){
+  const cleanStops = stops.filter(s => nodeById(s.id)); // drop any stop whose location no longer exists
+  if (cleanStops.length === 0){ showToast("That trip doesn't have any recognizable stops to save."); return null; }
+  const names = cleanStops.map(s => nodeById(s.id).name);
+  const summary = names.length > 1
+    ? `Your saved route: ${names[0]} → ${names[names.length - 1]} (${names.length} stops).`
+    : `Your saved route: ${names[0]}.`;
+  const preset = { id: 'custom-' + Date.now(), name: name.trim(), summary, stops: cleanStops, custom: true };
+  CUSTOM_PRESETS.push(preset);
+  saveCustomPresetsToStorage();
+  renderPresetChips();
+  return preset;
+}
+function saveCurrentTripAsPreset(){
+  if (itinerary.length === 0){ showToast('Nothing to save yet — build a trip first, then save it as a ready-made itinerary.'); return; }
+  const suggested = `My trip (${totalDays()}d)`;
+  const name = prompt('Name this itinerary so you can load it again later:', suggested);
+  if (name === null) return; // cancelled
+  if (!name.trim()){ showToast('Give it a name to save it.'); return; }
+  const stops = itinerary.map(stopFromItineraryItem);
+  const preset = addCustomPreset(name, stops);
+  if (preset) showToast(`"${preset.name}" saved to Ready-made itineraries.`);
+}
+function triggerPresetFileImport(){
+  const input = document.getElementById('presetFileInput');
+  if (input) input.click();
+}
+function handlePresetFileImport(input){
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      let stops = null;
+      let defaultName = file.name.replace(/\.json$/i, '');
+      if (data && Array.isArray(data.itinerary)) {
+        // A full trip-backup file (the format the "Save" button downloads).
+        stops = data.itinerary.map(stopFromItineraryItem);
+      } else if (data && Array.isArray(data.stops)) {
+        // An already preset-shaped file (e.g. one exported/shared as a preset).
+        stops = data.stops;
+        if (data.name) defaultName = data.name;
+      } else {
+        showToast("That file doesn't look like a trip backup or itinerary from this planner.");
+        input.value = '';
+        return;
+      }
+      const name = prompt('Name this itinerary so you can load it again later:', defaultName);
+      if (name === null){ input.value = ''; return; }
+      if (!name.trim()){ showToast('Give it a name to save it.'); input.value = ''; return; }
+      const preset = addCustomPreset(name, stops);
+      if (preset) showToast(`"${preset.name}" imported and added to Ready-made itineraries.`);
+    } catch(err) {
+      showToast("Could not read that file — make sure it's valid JSON exported from this planner.");
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+function removeCustomPreset(id, event){
+  if (event) event.stopPropagation();
+  const preset = CUSTOM_PRESETS.find(p => p.id === id);
+  if (!preset) return;
+  if (!confirm(`Remove "${preset.name}" from your saved itineraries? This can't be undone.`)) return;
+  CUSTOM_PRESETS = CUSTOM_PRESETS.filter(p => p.id !== id);
+  saveCustomPresetsToStorage();
+  renderPresetChips();
+}
 
 /* =========================================================
    STATE
@@ -2559,14 +2682,21 @@ function clearTrip(){
 function renderPresetChips(){
   const container = document.getElementById('presetChips');
   if (!container) return;
-  container.innerHTML = PRESET_ITINERARIES.map(p => {
+  const builtIn = PRESET_ITINERARIES.map(p => {
     const days = p.stops.reduce((s,x) => s + x.days, 0);
     const shortLabel = p.name.replace(/^Itinerary \d+ — /, '');
     return `<button type="button" class="filter-chip" style="border-color:var(--gold); color:var(--gold);" onclick="loadPreset('${p.id}')" title="${p.summary.replace(/"/g,'&quot;')}">${shortLabel} <span class="font-mono opacity-70">${days}d</span></button>`;
-  }).join('');
+  });
+  const custom = CUSTOM_PRESETS.map(p => {
+    const days = p.stops.reduce((s,x) => s + x.days, 0);
+    return `<button type="button" class="filter-chip" style="border-color:var(--sand-dim); color:var(--sand);" onclick="loadPreset('${p.id}')" title="${(p.summary||'').replace(/"/g,'&quot;')}">${p.name} <span class="font-mono opacity-70">${days}d</span><span onclick="removeCustomPreset('${p.id}', event)" title="Remove" style="margin-left:6px; padding:4px 6px; opacity:0.6;">✕</span></button>`;
+  });
+  container.innerHTML = builtIn.join('') + custom.join('') +
+    `<button type="button" class="filter-chip" style="border-style:dashed; color:var(--muted);" onclick="saveCurrentTripAsPreset()" title="Save your current trip as a ready-made itinerary you can load again later">+ Save current trip</button>` +
+    `<button type="button" class="filter-chip" style="border-style:dashed; color:var(--muted);" onclick="triggerPresetFileImport()" title="Import a trip JSON file as a ready-made itinerary">+ Import file</button>`;
 }
 function loadPreset(presetId){
-  const preset = PRESET_ITINERARIES.find(p => p.id === presetId);
+  const preset = PRESET_ITINERARIES.find(p => p.id === presetId) || CUSTOM_PRESETS.find(p => p.id === presetId);
   if (!preset) return;
   if (itinerary.length && !confirm(`Load "${preset.name}"? This replaces your current trip.`)) return;
   itinerary = preset.stops.map(s => ({
@@ -2585,6 +2715,11 @@ function loadPreset(presetId){
   tripStart = itinerary[0].uid;
   tripEnd = itinerary[itinerary.length - 1].uid;
   expandedUid = null;
+  if (preset.startDate){
+    setTripStartDate(preset.startDate);
+    const dateInput = document.getElementById('tripStartDateInput');
+    if (dateInput) dateInput.value = preset.startDate;
+  }
   syncAll();
   showToast(`${preset.name} loaded — tweak freely, add pins, or hit "Optimize now" to fine-tune the order.`);
 }
@@ -2850,6 +2985,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initMap();
   const restored = loadTripFromStorage();
   if (restored) pendingWelcomeBackToast = true;
+  loadCustomPresetsFromStorage();
   renderPresetChips();
   renderFilterChips();
   renderExploreList();

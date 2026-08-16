@@ -59,6 +59,7 @@
   .styled-scroll::-webkit-scrollbar{ width:6px; height:6px; }
   .styled-scroll::-webkit-scrollbar-track{ background:transparent; }
   .styled-scroll::-webkit-scrollbar-thumb{ background:var(--bg-panel-3); border-radius:4px; }
+  .styled-scroll{ -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
 
   /* ---------- Layout shell ---------- */
   .app-shell{ display:flex; flex-direction:column; height:100vh; }
@@ -124,6 +125,7 @@
 
   /* mobile sheets */
   .mobile-toggle{ display:none; }
+  .mobile-sheet-handle{ display:none; }
   @media (max-width:900px){
     .sidebar{
       position:fixed; left:0; right:0; bottom:0; top:auto; width:auto;
@@ -295,7 +297,7 @@
   #offlineBadge .dot{ width:7px; height:7px; border-radius:50%; background:var(--terracotta); flex-shrink:0; }
 
   #installBanner{
-    position:fixed; left:12px; right:12px; z-index:3900; display:none; align-items:center; gap:10px;
+    position:fixed; left:12px; right:12px; z-index:18; display:none; align-items:center; gap:10px;
     padding:12px 14px; border-radius:16px; background:var(--bg-panel-2); border:1px solid var(--gold);
     box-shadow:0 14px 34px rgba(0,0,0,.5); color:var(--text);
     bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);
@@ -345,6 +347,15 @@
     #mobileToggles{ bottom:calc(env(safe-area-inset-bottom,0px) + 14px); }
     .sidebar{ padding-bottom:env(safe-area-inset-bottom,0px); }
     .sidebar.open, .detail-drawer.open{ padding-bottom:env(safe-area-inset-bottom,0px); }
+
+    /* explicit, always-visible way to dismiss the mobile Explore/Trip sheet —
+       don't rely on the person finding the sliver of map above it */
+    .mobile-sheet-handle{ display:flex !important; align-items:center; justify-content:center; position:relative; flex-shrink:0; padding:9px 8px 4px; }
+    .mobile-sheet-grip{ width:36px; height:4px; border-radius:2px; background:var(--line); }
+    .mobile-sheet-done{
+      position:absolute; right:6px; top:0; min-height:44px; padding:8px 14px;
+      font-size:13px; font-weight:600; color:var(--gold); background:transparent; border:none;
+    }
   }
 </style>
 </head>
@@ -435,6 +446,10 @@
     <!-- ===== Sidebar ===== -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-resize-handle" id="sidebarResizeHandle" title="Drag to resize"></div>
+      <div class="mobile-sheet-handle" aria-hidden="true">
+        <span class="mobile-sheet-grip"></span>
+        <button type="button" class="mobile-sheet-done" onclick="closeMobilePanels()">Done</button>
+      </div>
 
       <!-- Explore -->
       <div class="explore-section" id="exploreSection">

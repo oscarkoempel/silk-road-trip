@@ -13,7 +13,7 @@
  * Bump CACHE_VERSION whenever index.html (or anything precached) changes,
  * so clients pick up the new copy instead of a stale cached one.
  */
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v6';
 const APP_CACHE = `rian-silk-road-app-${CACHE_VERSION}`;
 const TILE_CACHE = `rian-silk-road-tiles-${CACHE_VERSION}`;
 const TILE_CACHE_MAX_ENTRIES = 400;
